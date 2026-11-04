@@ -103,7 +103,7 @@ for each rule is the fee rate taken from the specification. We wrote one test ca
    specification uses (for example a student amount of $150, between $100 and $200; a non-student
    "from" balance of $3,000, between $2,000 and $4,000). Such a value lands on the correct side only
    if the code uses the threshold the specification states for that branch.
-7. **Floating point.** Expected and actual fees are compared with a tolerance of 0.0001.
+7. **Floating point.** Expected and actual fees are compared with a tolerance of 0.000001, the same as the withdrawal and deposit tests.
 
 ---
 

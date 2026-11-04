@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
  */
 class TransferFeeTest {
 	// How close the answer must be, since decimal numbers are not exact.
-	private static final double DELTA = 0.0001;
+	private static final double DELTA = 0.000001;
 
 	private final FeesCalculator calculator = new FeesCalculator();
 
