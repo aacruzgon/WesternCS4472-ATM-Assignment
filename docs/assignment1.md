@@ -1,27 +1,56 @@
 # Assignment 1: Black Box Testing
 
-Team: _names here_
+Team: Alan Cruz, Jared Jack Harrison, alessiap000, Julia Kasperek
 Pull request: _link here_
 
 | Target | Technique | Owner | Test class |
 |---|---|---|---|
-| `atm.session.Session` (PIN format, withdrawal amount) | Robust Worst Case BVA, single fault assumption | _Person ?_ | `src/test/java/atm/session/...` |
-| `FeesCalculator.calculateWithdrawalFee` | Robust Worst Case BVA | _Person ?_ | `src/test/java/bank/utils/...` |
-| `FeesCalculator.calculateDepositInterest` | Weak Robust Equivalence Class Analysis | _Person ?_ | `src/test/java/bank/utils/...` |
-| `FeesCalculator.calculateTransferFee` | Decision Table Analysis | Person C | `src/test/java/bank/utils/TransferFeeTest.java` |
+| `atm.session.Session` (PIN format, withdrawal amount) | Robust Worst Case BVA, single fault assumption | alessiap000 | `src/test/java/atm/session/SessionTest.java` |
+| `FeesCalculator.calculateWithdrawalFee` | Robust Worst Case BVA | Alan Cruz | `src/test/java/bank/utils/FeesCalculatorWithdrawalTest.java` |
+| `FeesCalculator.calculateDepositInterest` | Weak Robust Equivalence Class Analysis | Jared Jack Harrison | `src/test/java/bank/utils/DepositFeesTest.java` |
+| `FeesCalculator.calculateTransferFee` | Decision Table Analysis | Julia Kasperek | `src/test/java/bank/utils/TransferFeeTest.java` |
+
+The withdrawal fee write-up is long (154 test cases), so it lives in its own file:
+[`docs/assignment1/withdrawal.md`](assignment1/withdrawal.md). Its bugs are included in the team tables below.
 
 ---
 
 ## Section 1: Process and assumptions
 
 ### 1.1 Session: PIN format and withdrawal amount (Robust Worst Case BVA)
-_TODO (owner)_
+_TODO (alessiap000)_
 
 ### 1.2 Withdrawal fee (Robust Worst Case BVA)
-_TODO (owner)_
+See [docs/assignment1/withdrawal.md, Section 1](assignment1/withdrawal.md#section-1-process-and-assumptions).
 
 ### 1.3 Deposit fee (Weak Robust Equivalence Class Analysis)
-_TODO (owner)_
+
+The deposit fee tests target
+`FeesCalculator.calculateDepositInterest(amount, accountBalance, student)`.
+Although the method name uses the word `Interest`, expected results are derived
+from the deposit *fee* specification.
+
+Weak Robust Equivalence Class Analysis was applied as follows:
+
+- The `student` input has two valid classes: student and non-student.
+- For students, the amount classes are `amount > 50` and `amount <= 50`.
+  The applicable balance classes are `balance > 500` and `balance <= 500`
+  for the first amount class, and `balance > 5,000` and
+  `balance <= 5,000` for the second.
+- For non-students, the amount classes are `amount > 250` and
+  `amount <= 250`. The applicable balance classes are `balance > 2,500`
+  and `balance <= 2,500` for the first amount class, and
+  `balance > 10,000` and `balance <= 10,000` for the second.
+- One representative was selected for every valid combination that produces a
+  distinct fee rule. This gives the minimum eight cases needed to exercise all
+  specified deposit outcomes.
+- The specification does not explicitly define invalid numeric inputs. For the
+  robust portion of the analysis, negative deposit amounts and negative account
+  balances are assumed invalid. Each is tested separately while all other
+  inputs remain nominal, following the single-fault principle. The expected
+  behavior is rejection with `IllegalArgumentException`.
+- Expected monetary values are compared using a floating-point tolerance of
+  `0.000001`.
 
 ### 1.4 Transfer fee (Decision Table Analysis)
 
@@ -77,13 +106,27 @@ for each rule is the fee rate taken from the specification. We wrote one test ca
 ## Section 2: Test cases
 
 ### 2.1 Session
-_TODO (owner)_
+_TODO (alessiap000)_
 
 ### 2.2 Withdrawal fee
-_TODO (owner)_
+See [docs/assignment1/withdrawal.md, Section 2](assignment1/withdrawal.md#section-2-test-cases).
 
 ### 2.3 Deposit fee
-_TODO (owner)_
+
+The Actual result and Status columns are the test results for this section.
+
+| ID | Student | Amount ($) | Balance ($) | Equivalence class | Expected result | Actual result | Status |
+|---|---:|---:|---:|---|---:|---:|---|
+| DEP-WREC-01 | Yes | 100.00 | 1,000.00 | Amount > 50; balance > 500 | 0.50 | 0.20 | Fail |
+| DEP-WREC-02 | Yes | 100.00 | 500.00 | Amount > 50; balance <= 500 | 0.25 | 0.20 | Fail |
+| DEP-WREC-03 | Yes | 25.00 | 6,000.00 | Amount <= 50; balance > 5,000 | 0.125 | 0.125 | Pass |
+| DEP-WREC-04 | Yes | 25.00 | 5,000.00 | Amount <= 50; balance <= 5,000 | 0.00 | 0.05 | Fail |
+| DEP-WREC-05 | No | 500.00 | 3,000.00 | Amount > 250; balance > 2,500 | 4.00 | 0.00 | Fail |
+| DEP-WREC-06 | No | 500.00 | 2,500.00 | Amount > 250; balance <= 2,500 | 2.00 | 0.00 | Fail |
+| DEP-WREC-07 | No | 100.00 | 11,000.00 | Amount <= 250; balance > 10,000 | 0.00 | 0.50 | Fail |
+| DEP-WREC-08 | No | 100.00 | 10,000.00 | Amount <= 250; balance <= 10,000 | 0.10 | 0.00 | Fail |
+| DEP-WREC-09 | Yes | -1.00 | 1,000.00 | Invalid amount | `IllegalArgumentException` | Returned -0.002 | Fail |
+| DEP-WREC-10 | Yes | 100.00 | -1.00 | Invalid balance | `IllegalArgumentException` | Returned 0.20 | Fail |
 
 ### 2.4 Transfer fee: decision table
 
@@ -122,14 +165,21 @@ T = true, F = false.
 
 ## Section 3: Test results
 
+| Target | Run | Passed | Failed |
+|---|---|---|---|
+| Session | _TODO_ | | |
+| Withdrawal fee | 154 | 70 | 84 |
+| Deposit fee | 10 | 1 | 9 |
+| Transfer fee | 16 | 0 | 16 |
+
 ### 3.1 Session
-_TODO (owner)_
+_TODO (alessiap000)_
 
 ### 3.2 Withdrawal fee
-_TODO (owner)_
+See [docs/assignment1/withdrawal.md, Test results](assignment1/withdrawal.md#test-results).
 
 ### 3.3 Deposit fee
-_TODO (owner)_
+See the Actual result and Status columns in section 2.3.
 
 ### 3.4 Transfer fee
 
@@ -158,31 +208,52 @@ _TODO (owner)_
 
 ## Section 4: Fault localization
 
-All faults are in `src/main/java/bank/utils/FeesCalculator.java`. Several failing tests expose the
-same fault, so they are grouped. One test can expose more than one fault.
+All faults are in `src/main/java/bank/utils/FeesCalculator.java` unless stated otherwise. Several
+failing tests can expose the same fault, so they are grouped. One test can expose more than one
+fault. Fault IDs start with W (withdrawal), D (deposit) or T (transfer).
 
 | Fault | Failing tests | Location (method, line, statement) | Justification |
 |---|---|---|---|
-| F-T1 | TF-R1 to TF-R16 | `calculateTransferFee`, every `feePercentage = ...` (lines 83-135) | Rates are coded 10x too large (for example `0.01` for 0.1%, where `calculateWithdrawalFee` correctly uses `0.001`), so every fee is at least 10x the expected value, as in TF-R7 (12.5 instead of 1.25). |
-| F-T2 | TF-R1, TF-R2, TF-R3, TF-R4 | `calculateTransferFee`, line 80, `if (amount < 100.00)` in the student branch | The student amount threshold should be $200, so a $150 student transfer goes to the ">= $200" branch, as the actual values show (TF-R3 returned 150 x 0.025 = 3.75, the large-amount rate). |
-| F-T3 | TF-R1, TF-R2, TF-R5, TF-R6 | `calculateTransferFee`, lines 81 and 95, `if (fromAccountBalance < 1000.00)` in the student branch | The student "from" threshold should be $2,000, so a from balance of $1,000 is treated as ">= threshold" (TF-R5 returned 500 x 0.025 = 12.5, the from-high rate). |
-| F-T4 | TF-R9, TF-R10 | `calculateTransferFee`, line 111, `if (fromAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $4,000 here, so a from balance of $3,000 is wrongly treated as ">= threshold". |
-| F-T5 | TF-R9, TF-R11 | `calculateTransferFee`, lines 112 and 118, `if (toAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $2,000 here, so a to balance of $1,500 is wrongly treated as ">= threshold". |
-| F-T6 | TF-R13, TF-R14 | `calculateTransferFee`, line 125, `if (fromAccountBalance < 1000.00)` in the non-student, amount >= $100 branch | The threshold should be $2,000, so a from balance of $1,000 takes the from-high path (TF-R13 returned 150 x 0.05 = 7.5). |
-| F-T7 | TF-R14, TF-R16 | `calculateTransferFee`, line 135, `feePercentage = 0.055;` | For 0.25% the rate should be `0.0025`; `0.055` (5.5%) does not match even the 10x pattern of F-T1, so both tests returned 150 x 0.055 = 8.25. |
+| S-F? | _TODO (alessiap000)_ | | |
+| W-F1 | 35 student weekday/weekend tests (WD-S-02 ... WD-S-48, full list in [withdrawal.md](assignment1/withdrawal.md#fault-localization)) | `calculateWithdrawalFee`, line 12: `if ((dayOfWeek == Calendar.SATURDAY) \|\| (dayOfWeek == Calendar.SUNDAY))` | Every student weekday case expected no fee but was charged 0.1%, and every weekend case expected 0.1% but was charged nothing, so the weekday/weekend branches are swapped. |
+| W-F2 | 35 non-student tests WD-N-001 to WD-N-035 | `calculateWithdrawalFee`, line 19: `feePercentage = 0.002;` | Every non-student case with balance below $1,000 returned 0.2% of the amount instead of the specified 0.3%, so the rate constant is wrong. |
+| W-F3 | 14 non-student tests WD-N-064 to WD-N-077 | `calculateWithdrawalFee`, line 20: `else if (accountBalance < 10000.00)` | Balances of $5,000.00 and $5,000.01 were charged 0.1% instead of no fee, so the upper threshold of the 0.1% band is $10,000 instead of $5,000. |
+| D-F1 | DEP-WREC-01, DEP-WREC-02 | `bank.utils.FeesCalculator.calculateDepositInterest`: student amount threshold and rates | The implementation uses an amount threshold of $100 and rates of 1%, 0.5%, and 0.2%, rather than the specified $50 threshold and 0.5%, 0.25%, and 0% rates. |
+| D-F2 | DEP-WREC-04 | `bank.utils.FeesCalculator.calculateDepositInterest`: student low-amount, low-balance branch | The implementation charges 0.2% when the specified fee is zero. |
+| D-F3 | DEP-WREC-05, DEP-WREC-06 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student high-amount threshold and rates | The implementation uses a $500 amount threshold and $5,000 balance threshold instead of $250 and $2,500, and its rates do not match 0.8% and 0.4%. |
+| D-F4 | DEP-WREC-07, DEP-WREC-08 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student low-amount rates | The implementation applies 0.5% above $10,000 and 0% otherwise, while the specification requires 0% above $10,000 and 0.1% otherwise. |
+| D-F5 | DEP-WREC-09, DEP-WREC-10 | `bank.utils.FeesCalculator.calculateDepositInterest`: missing input validation | The method calculates a result for a negative amount or balance instead of rejecting the assumed invalid input. |
+| T-F1 | TF-R1 to TF-R16 | `calculateTransferFee`, every `feePercentage = ...` (lines 83-135) | Rates are coded 10x too large (for example `0.01` for 0.1%, where `calculateWithdrawalFee` correctly uses `0.001`), so every fee is at least 10x the expected value, as in TF-R7 (12.5 instead of 1.25). |
+| T-F2 | TF-R1, TF-R2, TF-R3, TF-R4 | `calculateTransferFee`, line 80, `if (amount < 100.00)` in the student branch | The student amount threshold should be $200, so a $150 student transfer goes to the ">= $200" branch, as the actual values show (TF-R3 returned 150 x 0.025 = 3.75, the large-amount rate). |
+| T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | `calculateTransferFee`, lines 81 and 95, `if (fromAccountBalance < 1000.00)` in the student branch | The student "from" threshold should be $2,000, so a from balance of $1,000 is treated as ">= threshold" (TF-R5 returned 500 x 0.025 = 12.5, the from-high rate). |
+| T-F4 | TF-R9, TF-R10 | `calculateTransferFee`, line 111, `if (fromAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $4,000 here, so a from balance of $3,000 is wrongly treated as ">= threshold". |
+| T-F5 | TF-R9, TF-R11 | `calculateTransferFee`, lines 112 and 118, `if (toAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $2,000 here, so a to balance of $1,500 is wrongly treated as ">= threshold". |
+| T-F6 | TF-R13, TF-R14 | `calculateTransferFee`, line 125, `if (fromAccountBalance < 1000.00)` in the non-student, amount >= $100 branch | The threshold should be $2,000, so a from balance of $1,000 takes the from-high path (TF-R13 returned 150 x 0.05 = 7.5). |
+| T-F7 | TF-R14, TF-R16 | `calculateTransferFee`, line 135, `feePercentage = 0.055;` | For 0.25% the rate should be `0.0025`; `0.055` (5.5%) does not match even the 10x pattern of F-T1, so both tests returned 150 x 0.055 = 8.25. |
+
 
 ---
 
 ## Failure log (kept for Assignment 3)
 
-Each team member adds a row as soon as they find a failure. Times are rough estimates in minutes.
+Each person adds a row as soon as they find a failure. Times are rough estimates in minutes.
+Fill in your own times; do not reconstruct them later.
 
-| Failure ID | Test case | Found by | Time testing before found (min) | Time diagnosing (min) | Fault |
+| Failure ID | Test case(s) | Found by | Time testing before found (min) | Time diagnosing (min) | Fault |
 |---|---|---|---|---|---|
-| FL-01 | TF-R1 to TF-R16 | Person C | | | F-T1 |
-| FL-02 | TF-R1 to TF-R4 | Person C | | | F-T2 |
-| FL-03 | TF-R1, TF-R2, TF-R5, TF-R6 | Person C | | | F-T3 |
-| FL-04 | TF-R9, TF-R10 | Person C | | | F-T4 |
-| FL-05 | TF-R9, TF-R11 | Person C | | | F-T5 |
-| FL-06 | TF-R13, TF-R14 | Person C | | | F-T6 |
-| FL-07 | TF-R14, TF-R16 | Person C | | | F-T7 |
+| S-F? | _TODO_ | alessiap000 | | | |
+| W-F1 | WD-S-02 | Alan Cruz | | | W-F1 |
+| W-F2 | WD-N-001 | Alan Cruz | | | W-F2 |
+| W-F3 | WD-N-064 | Alan Cruz | | | W-F3 |
+| DEP-F01 | DEP-WREC-01, DEP-WREC-02 | Jared Jack Harrison | | | D-F1 |
+| DEP-F02 | DEP-WREC-04 | Jared Jack Harrison | | | D-F2 |
+| DEP-F03 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | | | D-F3 |
+| DEP-F04 | DEP-WREC-07, DEP-WREC-08 | Jared Jack Harrison | | | D-F4 |
+| DEP-F05 | DEP-WREC-09, DEP-WREC-10 | Jared Jack Harrison | | | D-F5 |
+| TR-F1 | TF-R1 to TF-R16 | Julia Kasperek | | | T-F1 |
+| TR-F2 | TF-R1 to TF-R4 | Julia Kasperek | | | T-F2 |
+| TR-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | | | T-F3 |
+| TR-F4 | TF-R9, TF-R10 | Julia Kasperek | | | T-F4 |
+| TR-F5 | TF-R9, TF-R11 | Julia Kasperek | | | T-F5 |
+| TR-F6 | TF-R13, TF-R14 | Julia Kasperek | | | T-F6 |
+| TR-F7 | TF-R14, TF-R16 | Julia Kasperek | | | T-F7 |
