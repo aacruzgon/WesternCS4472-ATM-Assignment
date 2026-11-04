@@ -1,0 +1,16 @@
+# Maven build output
+target/
+
+# SQLite database the bank server creates at runtime (bank-seed.sql is the source)
+bank.db
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# macOS
+.DS_Store
