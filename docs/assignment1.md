@@ -44,11 +44,15 @@ Weak Robust Equivalence Class Analysis was applied as follows:
 - One representative was selected for every valid combination that produces a
   distinct fee rule. This gives the minimum eight cases needed to exercise all
   specified deposit outcomes.
-- The specification does not explicitly define invalid numeric inputs. For the
-  robust portion of the analysis, negative deposit amounts and negative account
-  balances are assumed invalid. Each is tested separately while all other
-  inputs remain nominal, following the single-fault principle. The expected
-  behavior is rejection with `IllegalArgumentException`.
+- For the robust part of the analysis, a negative deposit amount and a negative
+  account balance are the invalid classes. Each is tested on its own while the
+  other inputs stay valid, following the single-fault principle.
+- The specification defines no error for out-of-range values, so the fee rules
+  are applied literally: -$1.00 is "$50 or less" and a balance of -$1.00 is not
+  "more than $500". Input validation is the responsibility of `Session`, which
+  the specification gives `InvalidAmountException` and
+  `InvalidPinFormatException`. This is the same assumption as A4 in the
+  withdrawal section.
 - Expected monetary values are compared using a floating-point tolerance of
   `0.000001`.
 
@@ -125,8 +129,8 @@ The Actual result and Status columns are the test results for this section.
 | DEP-WREC-06 | No | 500.00 | 2,500.00 | Amount > 250; balance <= 2,500 | 2.00 | 0.00 | Fail |
 | DEP-WREC-07 | No | 100.00 | 11,000.00 | Amount <= 250; balance > 10,000 | 0.00 | 0.50 | Fail |
 | DEP-WREC-08 | No | 100.00 | 10,000.00 | Amount <= 250; balance <= 10,000 | 0.10 | 0.00 | Fail |
-| DEP-WREC-09 | Yes | -1.00 | 1,000.00 | Invalid amount | `IllegalArgumentException` | Returned -0.002 | Fail |
-| DEP-WREC-10 | Yes | 100.00 | -1.00 | Invalid balance | `IllegalArgumentException` | Returned 0.20 | Fail |
+| DEP-WREC-09 | Yes | -1.00 | 1,000.00 | Invalid amount (< 0), so amount <= 50; balance <= 5,000 | 0.00 | -0.002 | Fail |
+| DEP-WREC-10 | Yes | 100.00 | -1.00 | Invalid balance (< 0), so amount > 50; balance <= 500 | 0.25 | 0.20 | Fail |
 
 ### 2.4 Transfer fee: decision table
 
@@ -218,11 +222,10 @@ fault. Fault IDs start with W (withdrawal), D (deposit) or T (transfer).
 | W-F1 | 35 student weekday/weekend tests (WD-S-02 ... WD-S-48, full list in [withdrawal.md](assignment1/withdrawal.md#fault-localization)) | `calculateWithdrawalFee`, line 12: `if ((dayOfWeek == Calendar.SATURDAY) \|\| (dayOfWeek == Calendar.SUNDAY))` | Every student weekday case expected no fee but was charged 0.1%, and every weekend case expected 0.1% but was charged nothing, so the weekday/weekend branches are swapped. |
 | W-F2 | 35 non-student tests WD-N-001 to WD-N-035 | `calculateWithdrawalFee`, line 19: `feePercentage = 0.002;` | Every non-student case with balance below $1,000 returned 0.2% of the amount instead of the specified 0.3%, so the rate constant is wrong. |
 | W-F3 | 14 non-student tests WD-N-064 to WD-N-077 | `calculateWithdrawalFee`, line 20: `else if (accountBalance < 10000.00)` | Balances of $5,000.00 and $5,000.01 were charged 0.1% instead of no fee, so the upper threshold of the 0.1% band is $10,000 instead of $5,000. |
-| D-F1 | DEP-WREC-01, DEP-WREC-02 | `bank.utils.FeesCalculator.calculateDepositInterest`: student amount threshold and rates | The implementation uses an amount threshold of $100 and rates of 1%, 0.5%, and 0.2%, rather than the specified $50 threshold and 0.5%, 0.25%, and 0% rates. |
-| D-F2 | DEP-WREC-04 | `bank.utils.FeesCalculator.calculateDepositInterest`: student low-amount, low-balance branch | The implementation charges 0.2% when the specified fee is zero. |
+| D-F1 | DEP-WREC-01, DEP-WREC-02, DEP-WREC-10 | `bank.utils.FeesCalculator.calculateDepositInterest`: student amount threshold and rates | The implementation uses an amount threshold of $100 and rates of 1%, 0.5%, and 0.2%, rather than the specified $50 threshold and 0.5%, 0.25%, and 0% rates. |
+| D-F2 | DEP-WREC-04, DEP-WREC-09 | `bank.utils.FeesCalculator.calculateDepositInterest`: student low-amount, low-balance branch | The implementation charges 0.2% when the specified fee is zero. |
 | D-F3 | DEP-WREC-05, DEP-WREC-06 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student high-amount threshold and rates | The implementation uses a $500 amount threshold and $5,000 balance threshold instead of $250 and $2,500, and its rates do not match 0.8% and 0.4%. |
 | D-F4 | DEP-WREC-07, DEP-WREC-08 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student low-amount rates | The implementation applies 0.5% above $10,000 and 0% otherwise, while the specification requires 0% above $10,000 and 0.1% otherwise. |
-| D-F5 | DEP-WREC-09, DEP-WREC-10 | `bank.utils.FeesCalculator.calculateDepositInterest`: missing input validation | The method calculates a result for a negative amount or balance instead of rejecting the assumed invalid input. |
 | T-F1 | TF-R1 to TF-R16 | `calculateTransferFee`, every `feePercentage = ...` (lines 83-135) | Rates are coded 10x too large (for example `0.01` for 0.1%, where `calculateWithdrawalFee` correctly uses `0.001`), so every fee is at least 10x the expected value, as in TF-R7 (12.5 instead of 1.25). |
 | T-F2 | TF-R1, TF-R2, TF-R3, TF-R4 | `calculateTransferFee`, line 80, `if (amount < 100.00)` in the student branch | The student amount threshold should be $200, so a $150 student transfer goes to the ">= $200" branch, as the actual values show (TF-R3 returned 150 x 0.025 = 3.75, the large-amount rate). |
 | T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | `calculateTransferFee`, lines 81 and 95, `if (fromAccountBalance < 1000.00)` in the student branch | The student "from" threshold should be $2,000, so a from balance of $1,000 is treated as ">= threshold" (TF-R5 returned 500 x 0.025 = 12.5, the from-high rate). |
@@ -249,7 +252,6 @@ Fill in your own times; do not reconstruct them later.
 | DEP-F02 | DEP-WREC-04 | Jared Jack Harrison | | | D-F2 |
 | DEP-F03 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | | | D-F3 |
 | DEP-F04 | DEP-WREC-07, DEP-WREC-08 | Jared Jack Harrison | | | D-F4 |
-| DEP-F05 | DEP-WREC-09, DEP-WREC-10 | Jared Jack Harrison | | | D-F5 |
 | TR-F1 | TF-R1 to TF-R16 | Julia Kasperek | | | T-F1 |
 | TR-F2 | TF-R1 to TF-R4 | Julia Kasperek | | | T-F2 |
 | TR-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | | | T-F3 |
