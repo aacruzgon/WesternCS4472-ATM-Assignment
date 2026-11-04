@@ -1,7 +1,7 @@
 # Assignment 1: Black Box Testing
 
 Team: Alan Cruz, Jared Jack Harrison, alessiap000, Julia Kasperek
-Pull request: _link here_
+Pull request: [#1](https://github.com/aacruzgon/WesternCS4472-ATM-Assignment/pull/1)
 
 | Target | Technique | Owner | Test class |
 |---|---|---|---|
