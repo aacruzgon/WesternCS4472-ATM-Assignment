@@ -226,13 +226,13 @@ fault. Fault IDs start with W (withdrawal), D (deposit) or T (transfer).
 | D-F2 | DEP-WREC-04, DEP-WREC-09 | `bank.utils.FeesCalculator.calculateDepositInterest`: student low-amount, low-balance branch | The implementation charges 0.2% when the specified fee is zero. |
 | D-F3 | DEP-WREC-05, DEP-WREC-06 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student high-amount threshold and rates | The implementation uses a $500 amount threshold and $5,000 balance threshold instead of $250 and $2,500, and its rates do not match 0.8% and 0.4%. |
 | D-F4 | DEP-WREC-07, DEP-WREC-08 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student low-amount rates | The implementation applies 0.5% above $10,000 and 0% otherwise, while the specification requires 0% above $10,000 and 0.1% otherwise. |
-| T-F1 | TF-R1 to TF-R16 | `calculateTransferFee`, every `feePercentage = ...` (lines 83-135) | Rates are coded 10x too large (for example `0.01` for 0.1%, where `calculateWithdrawalFee` correctly uses `0.001`), so every fee is at least 10x the expected value, as in TF-R7 (12.5 instead of 1.25). |
+| T-F1 | TF-R1 to TF-R13, TF-R15 | `calculateTransferFee`, the `feePercentage = ...` rates (lines 83-133) | Rates are coded 10x too large (for example `0.01` for 0.1%, where `calculateWithdrawalFee` correctly uses `0.001`). The tests where no threshold fault applies show this directly: TF-R7, TF-R8, TF-R12 and TF-R15 each return exactly 10x the expected fee (TF-R7: 12.5 instead of 1.25). In the other tests a threshold fault (T-F2 to T-F6) also sends the input to another rule, so the ratio differs (TF-R11 returned 2.5, 5x the expected 0.50). |
 | T-F2 | TF-R1, TF-R2, TF-R3, TF-R4 | `calculateTransferFee`, line 80, `if (amount < 100.00)` in the student branch | The student amount threshold should be $200, so a $150 student transfer goes to the ">= $200" branch, as the actual values show (TF-R3 returned 150 x 0.025 = 3.75, the large-amount rate). |
 | T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | `calculateTransferFee`, lines 81 and 95, `if (fromAccountBalance < 1000.00)` in the student branch | The student "from" threshold should be $2,000, so a from balance of $1,000 is treated as ">= threshold" (TF-R5 returned 500 x 0.025 = 12.5, the from-high rate). |
 | T-F4 | TF-R9, TF-R10 | `calculateTransferFee`, line 111, `if (fromAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $4,000 here, so a from balance of $3,000 is wrongly treated as ">= threshold". |
 | T-F5 | TF-R9, TF-R11 | `calculateTransferFee`, lines 112 and 118, `if (toAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $2,000 here, so a to balance of $1,500 is wrongly treated as ">= threshold". |
 | T-F6 | TF-R13, TF-R14 | `calculateTransferFee`, line 125, `if (fromAccountBalance < 1000.00)` in the non-student, amount >= $100 branch | The threshold should be $2,000, so a from balance of $1,000 takes the from-high path (TF-R13 returned 150 x 0.05 = 7.5). |
-| T-F7 | TF-R14, TF-R16 | `calculateTransferFee`, line 135, `feePercentage = 0.055;` | For 0.25% the rate should be `0.0025`; `0.055` (5.5%) does not match even the 10x pattern of F-T1, so both tests returned 150 x 0.055 = 8.25. |
+| T-F7 | TF-R14, TF-R16 | `calculateTransferFee`, line 135, `feePercentage = 0.055;` | For 0.25% the rate should be `0.0025`; `0.055` (5.5%) does not match even the 10x pattern of T-F1, so both tests returned 150 x 0.055 = 8.25. |
 
 
 ---
@@ -252,7 +252,7 @@ Fill in your own times; do not reconstruct them later.
 | DEP-F02 | DEP-WREC-04 | Jared Jack Harrison | | | D-F2 |
 | DEP-F03 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | | | D-F3 |
 | DEP-F04 | DEP-WREC-07, DEP-WREC-08 | Jared Jack Harrison | | | D-F4 |
-| TR-F1 | TF-R1 to TF-R16 | Julia Kasperek | | | T-F1 |
+| TR-F1 | TF-R1 to TF-R13, TF-R15 | Julia Kasperek | | | T-F1 |
 | TR-F2 | TF-R1 to TF-R4 | Julia Kasperek | | | T-F2 |
 | TR-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | | | T-F3 |
 | TR-F4 | TF-R9, TF-R10 | Julia Kasperek | | | T-F4 |
