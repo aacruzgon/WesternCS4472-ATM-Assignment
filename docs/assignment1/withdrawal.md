@@ -36,6 +36,8 @@ The expected fee for every test case is `amount x rate` with the rate taken from
    - an amount of $19 or $1,001 is charged at the normal rate;
    - a balance of -$0.01 is "less than $1,000" (N1), and $100,000.01 is "$5,000 or more" (N3);
    - a day of 0 or 8 is not a weekday, so for a student it falls under "otherwise" (S2, 0.1%).
+
+   The deposit section uses the same assumption. Input validation belongs to `atm.session.Session`, where the specification defines `InvalidAmountException` and `InvalidPinFormatException`.
 5. **A5. Irrelevant variables are held at nominal.** The specification makes the student fee depend only on the day and the non-student fee depend only on the balance. For students the balance is held at a nominal $3,000.00; for non-students the day is held at a nominal 4 (`WEDNESDAY`). Without this, the product would be 2 x 7 x 15 x 7 = 1,470 cases, and more than 1,300 of them would only repeat inputs the specification ignores.
 6. **A6. Oracle tolerance.** Fees are `double`s, so they are compared with a tolerance of 1e-6. That is far smaller than the smallest difference between two specified fees (0.1% of $19 = $0.019), so no fault can hide inside the tolerance.
 
@@ -220,8 +222,6 @@ The expected fee for every test case is `amount x rate` with the rate taken from
 
 ## Test results
 
-> **Reviewer note (remove before the PR):** these results come from running `FeesCalculatorWithdrawalTest` locally with the JUnit 5 console launcher (Java 11 target, not Maven), which gave 154 run, 70 passed, 84 failed, the same failing IDs as below. Check them against the CI JUnit report on the PR.
-
 **Summary:** 154 test cases, 70 passed, **84 failed**. Student: 14/49 passed. Non-student: 56/105 passed.
 
 ### Student
@@ -392,11 +392,11 @@ The expected fee for every test case is `amount x rate` with the rate taken from
 
 | Fault | Failing tests | Suspected fault (file, method, line) | Justification |
 |---|---|---|---|
-| F1 | 35 tests: WD-S-02, WD-S-03, WD-S-04, WD-S-05, WD-S-06, WD-S-09, WD-S-10, WD-S-11, WD-S-12, WD-S-13, WD-S-16, WD-S-17, WD-S-18, WD-S-19, WD-S-20, WD-S-23, WD-S-24, WD-S-25, WD-S-26, WD-S-27, WD-S-30, WD-S-31, WD-S-32, WD-S-33, WD-S-34, WD-S-37, WD-S-38, WD-S-39, WD-S-40, WD-S-41, WD-S-44, WD-S-45, WD-S-46, WD-S-47, WD-S-48 | `FeesCalculator.java`, `calculateWithdrawalFee`, line 12: `if ((dayOfWeek == Calendar.SATURDAY) \|\| (dayOfWeek == Calendar.SUNDAY))` gives 0% on weekends and 0.1% otherwise | Every student weekday case (days 2, 4, 6) expected no fee but was charged 0.1%, and every weekend case (days 1, 7) expected 0.1% but was charged nothing; only the out-of-range days 0 and 8 pass, so the weekday/weekend branches are swapped. |
-| F2 | 35 tests: WD-N-001, WD-N-002, WD-N-003, WD-N-004, WD-N-005, WD-N-006, WD-N-007, WD-N-008, WD-N-009, WD-N-010, WD-N-011, WD-N-012, WD-N-013, WD-N-014, WD-N-015, WD-N-016, WD-N-017, WD-N-018, WD-N-019, WD-N-020, WD-N-021, WD-N-022, WD-N-023, WD-N-024, WD-N-025, WD-N-026, WD-N-027, WD-N-028, WD-N-029, WD-N-030, WD-N-031, WD-N-032, WD-N-033, WD-N-034, WD-N-035 | `FeesCalculator.java`, `calculateWithdrawalFee`, line 19: `feePercentage = 0.002;` | Every non-student case with balance below $1,000 (including -$0.01) returned 0.2% of the amount instead of the specified 0.3%, while the balance boundaries themselves behave correctly, so the rate constant is wrong. |
-| F3 | 14 tests: WD-N-064, WD-N-065, WD-N-066, WD-N-067, WD-N-068, WD-N-069, WD-N-070, WD-N-071, WD-N-072, WD-N-073, WD-N-074, WD-N-075, WD-N-076, WD-N-077 | `FeesCalculator.java`, `calculateWithdrawalFee`, line 20: `else if (accountBalance < 10000.00)` | Balances of $5,000.00 and $5,000.01 were charged 0.1% instead of no fee, while $4,999.99 (0.1%) and $52,500.00 and above (no fee) are correct, so the upper threshold of the 0.1% band is set above $5,000: the code uses $10,000 instead of $5,000. |
+| W-F1 | 35 tests: WD-S-02, WD-S-03, WD-S-04, WD-S-05, WD-S-06, WD-S-09, WD-S-10, WD-S-11, WD-S-12, WD-S-13, WD-S-16, WD-S-17, WD-S-18, WD-S-19, WD-S-20, WD-S-23, WD-S-24, WD-S-25, WD-S-26, WD-S-27, WD-S-30, WD-S-31, WD-S-32, WD-S-33, WD-S-34, WD-S-37, WD-S-38, WD-S-39, WD-S-40, WD-S-41, WD-S-44, WD-S-45, WD-S-46, WD-S-47, WD-S-48 | `FeesCalculator.java`, `calculateWithdrawalFee`, line 12: `if ((dayOfWeek == Calendar.SATURDAY) \|\| (dayOfWeek == Calendar.SUNDAY))` gives 0% on weekends and 0.1% otherwise | Every student weekday case (days 2, 4, 6) expected no fee but was charged 0.1%, and every weekend case (days 1, 7) expected 0.1% but was charged nothing; only the out-of-range days 0 and 8 pass, so the weekday/weekend branches are swapped. |
+| W-F2 | 35 tests: WD-N-001, WD-N-002, WD-N-003, WD-N-004, WD-N-005, WD-N-006, WD-N-007, WD-N-008, WD-N-009, WD-N-010, WD-N-011, WD-N-012, WD-N-013, WD-N-014, WD-N-015, WD-N-016, WD-N-017, WD-N-018, WD-N-019, WD-N-020, WD-N-021, WD-N-022, WD-N-023, WD-N-024, WD-N-025, WD-N-026, WD-N-027, WD-N-028, WD-N-029, WD-N-030, WD-N-031, WD-N-032, WD-N-033, WD-N-034, WD-N-035 | `FeesCalculator.java`, `calculateWithdrawalFee`, line 19: `feePercentage = 0.002;` | Every non-student case with balance below $1,000 (including -$0.01) returned 0.2% of the amount instead of the specified 0.3%, while the balance boundaries themselves behave correctly, so the rate constant is wrong. |
+| W-F3 | 14 tests: WD-N-064, WD-N-065, WD-N-066, WD-N-067, WD-N-068, WD-N-069, WD-N-070, WD-N-071, WD-N-072, WD-N-073, WD-N-074, WD-N-075, WD-N-076, WD-N-077 | `FeesCalculator.java`, `calculateWithdrawalFee`, line 20: `else if (accountBalance < 10000.00)` | Balances of $5,000.00 and $5,000.01 were charged 0.1% instead of no fee, while $4,999.99 (0.1%) and $52,500.00 and above (no fee) are correct, so the upper threshold of the 0.1% band is set above $5,000: the code uses $10,000 instead of $5,000. |
 
-Limit of this suite for F3: the black box cases show that the 0.1% band wrongly continues past $5,000 and has ended by $52,500 (the next sampled balance), but they cannot pin down where it ends. The $10,000 value comes from reading the code during fault localization. Moving the nominal value to catch it would mean choosing test values from the code, which black box testing does not allow.
+Limit of this suite for W-F3: the black box cases show that the 0.1% band wrongly continues past $5,000 and has ended by $52,500 (the next sampled balance), but they cannot pin down where it ends. The $10,000 value comes from reading the code during fault localization. Moving the nominal value to catch it would mean choosing test values from the code, which black box testing does not allow.
 
 ## Failure log (keep for Assignment 3)
 
@@ -404,6 +404,6 @@ Fill in the times from your own testing session.
 
 | Failure ID | Exposed by (first failing test) | Time spent testing before found | Time spent diagnosing |
 |---|---|---|---|
-| F1 | WD-S-02 | | |
-| F2 | WD-N-001 | | |
-| F3 | WD-N-064 | | |
+| W-F1 | WD-S-02 | | |
+| W-F2 | WD-N-001 | | |
+| W-F3 | WD-N-064 | | |
