@@ -205,7 +205,7 @@ means the withdrawal was accepted and sent to the bank.
 | SE-A-04 | 990 | max- (valid) | Dispatched | Dispatched | Pass |
 | SE-A-05 | 1000 | max / daily limit (valid) | Dispatched | Dispatched | Pass |
 | SE-A-06 | 10 | min- (below $20) | InvalidAmountException | Rejected | Pass |
-| SE-A-07 | 1010 | max+ (not dispensable) | InvalidAmountException | Rejected | Pass |
+| SE-A-07 | 1010 | max+ (over daily limit) | InvalidAmountException | Rejected | Pass |
 | SE-A-08 | 50 | dispensable (1x$50) | Dispatched | Dispatched | Pass |
 | SE-A-09 | 60 | dispensable (3x$20) | Dispatched | InvalidAmountException | Fail |
 | SE-A-10 | 70 | dispensable ($20+$50) | Dispatched | Dispatched | Pass |
@@ -224,6 +224,11 @@ means the withdrawal was accepted and sent to the bank.
 | SE-A-23 | 0 | non-positive | InvalidAmountException | Dispatched | Fail |
 | SE-A-24 | -20 | non-positive | InvalidAmountException | Dispatched | Fail |
 | SE-A-25 | -50 | non-positive | InvalidAmountException | Dispatched | Fail |
+
+SE-A-07 passes only by coincidence. $1,010 can be dispensed (48 x $20 + 1 x $50), so
+the only correct reason to reject it is the $1,000 daily limit, which the code never
+checks (S-F3). The code rejects it because its bill check (S-F2) wrongly treats $1,010
+as undispensable, so one fault happens to hide the other on this input.
 
 ### 2.2 Withdrawal fee
 See [docs/assignment1/withdrawal.md, Section 2](assignment1/withdrawal.md#section-2-test-cases).

@@ -400,10 +400,5 @@ Limit of this suite for W-F3: the black box cases show that the 0.1% band wrongl
 
 ## Failure log (keep for Assignment 3)
 
-Fill in the times from your own testing session.
-
-| Failure ID | Exposed by (first failing test) | Time spent testing before found | Time spent diagnosing |
-|---|---|---|---|
-| W-F1 | WD-S-02 | | |
-| W-F2 | WD-N-001 | | |
-| W-F3 | WD-N-064 | | |
+The failure log for W-F1 to W-F3 is kept with the rest of the team's log in
+[docs/assignment1.md](../assignment1.md#failure-log-kept-for-assignment-3).
