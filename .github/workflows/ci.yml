@@ -121,3 +121,12 @@ jobs:
           min-coverage-changed-files: 0
           title: JaCoCo coverage report
           update-comment: true
+
+      - name: Upload JaCoCo HTML report
+        if: ${{ always() && hashFiles('target/site/jacoco/index.html') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-html-report
+          path: target/site/jacoco
+          retention-days: 90
