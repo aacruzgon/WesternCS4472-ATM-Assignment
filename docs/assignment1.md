@@ -395,9 +395,9 @@ Fill in your own times; do not reconstruct them later.
 | S-F2 | SE-A-09 | Alessia Pilla | 78 | 24 | S-F2 |
 | S-F3 | SE-A-21 | Alessia Pilla | 8 | 16 | S-F3 |
 | S-F4 | SE-A-23 | Alessia Pilla | 4 | 9 | S-F4 |
-| W-F1 | WD-S-02 | Alan Cruz | | | W-F1 |
-| W-F2 | WD-N-001 | Alan Cruz | | | W-F2 |
-| W-F3 | WD-N-064 | Alan Cruz | | | W-F3 |
+| W-F1 | WD-S-02 | Alan Cruz | 2 | 4 | W-F1 |
+| W-F2 | WD-N-001 | Alan Cruz | 2 | 4 | W-F2 |
+| W-F3 | WD-N-064 | Alan Cruz | 2 | 4 | W-F3 |
 | D-F1 | DEP-WREC-01, DEP-WREC-02 | Jared Jack Harrison | 85 | 18 | D-F1 |
 | D-F2 | DEP-WREC-04 | Jared Jack Harrison | 6 | 9 | D-F2 |
 | D-F3 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | 4 | 14 | D-F3 |
@@ -409,5 +409,7 @@ Fill in your own times; do not reconstruct them later.
 | T-F5 | TF-R9, TF-R11 | Julia Kasperek | 15 | 15 | T-F5 |
 | T-F6 | TF-R13, TF-R14 | Julia Kasperek | 15 | 8 | T-F6 |
 | T-F7 | TF-R14, TF-R16 | Julia Kasperek | 15 | 5 | T-F7 |
+
+Withdrawal rows (W-F1 to W-F3): reconstructed afterwards from work-session timestamps. All three failures appeared in the same first test run.
 
 Transfer rows (T-F1 to T-F7): times were not tracked during testing, so these are estimates made afterwards.
