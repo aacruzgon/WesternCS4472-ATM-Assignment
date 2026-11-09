@@ -19,27 +19,40 @@ The withdrawal fee write-up is long (154 test cases), so it lives in its own fil
 
 ### 1.1 Session: PIN format and withdrawal amount (Robust Worst Case BVA)
 
-Target: `atm.session.Session`, for the withdrawal transaction only. `Session` does not check the PIN format itself. `atm.ATM.checkPin` does, so the PIN tests go through `ATM`.
-Test class: `src/test/java/atm/session/SessionTest.java`
-Shared setup: `src/test/java/atm/fixtures/SeededAccount.java`
+The Session target is tested through two public entry points: `ATM.checkPin` (which
+delegates to `FormatChecker.checkPinFormat`) for the PIN format, and
+`Session.setAmount` (which delegates to `CashValidator.validateWithdrawal`) for the
+withdrawal amount. Only the withdrawal transaction (choice 1) is exercised, on an
+account with a $1,000 daily limit and a $5,000 balance, as the assignment requires.
 
-**Rules under test**
+**Technique.** Robust Worst Case Boundary Value Analysis under the single-fault
+assumption. For each input we take the seven robust boundary values
+(min-, min, min+, nominal, max-, max, max+). "Worst case" means we cross the two
+inputs; the single-fault assumption means a test carries at most one out-of-range
+value, so the combinations with both an invalid PIN and an invalid amount are
+dropped.
 
-| Rule | Condition | Expected result |
-|---|---|---|
-| P1 | The PIN has exactly 5 digits | PIN accepted |
-| P2 | Any other PIN | `InvalidPinFormatException` |
-| M1 | The amount is from $20 to $1,000 and can be made from $20 and $50 bills | Withdrawal completes |
-| M2 | Any other amount | `InvalidAmountException` |
+**Inputs and boundary values.**
 
-**Values tested**
+| Variable | Valid range | min- | min | min+ | nom | max- | max | max+ |
+|---|---|---|---|---|---|---|---|---|
+| PIN | 00000-99999 (5 digits) | 0000 | 00000 | 00001 | 55555 | 99998 | 99999 | 100000 |
+| Amount | $20-$1,000 | 10 | 20 | 40 | 500 | 990 | 1000 | 1010 |
 
-| Input | Too low | Lowest | Next above lowest | Middle | Next below highest | Highest | Too high |
-|---|---|---|---|---|---|---|---|
-| PIN | `0000` | `00000` | `00001` | `55555` | `99998` | `99999` | `100000` |
-| Amount ($) | 10 | 20 | 40 | 500 | 990 | 1,000 | 1,010 |
+Amounts move in $10 steps; the value after $20 is $40 because $30 cannot be formed
+from $20 and $50 bills.
 
-**Assumptions**
+**Case count.** Crossing 7 PIN values with 7 amount values gives 49. Removing the
+4 cells that have both an invalid PIN and an invalid amount leaves 45 cases:
+25 good-PIN/good-amount, 10 good-PIN/bad-amount, and 10 bad-PIN/good-amount. Because
+the ATM stops at a bad PIN before it ever reads an amount, the 10 bad-PIN/good-amount
+cells reduce to 2 distinct tests (one per invalid PIN). We then add cases the
+worst-case grid does not reach: PINs with non-digit characters and other wrong
+lengths, amounts that are dispensable combinations of $20 and $50 bills, amounts
+over the daily limit, and non-positive amounts. In total the suite runs 72 JUnit
+cases.
+
+**Assumptions.**
 
 1. **S-A1. Amount range.** Withdrawals go from $20 to $1,000. $20 is the smallest amount the bills can make, and the assignment makes the $1,000 daily limit the upper boundary. This is the same range as A1 in [withdrawal.md](assignment1/withdrawal.md#assumptions).
 2. **S-A2. Steps of $10.** Every amount the bills can make is a multiple of $10, so the table moves in steps of $10. The next value after $20 is $40, because $30 cannot be made. Amounts $1 away from the boundaries (19, 21, 999, 1,001) are tested separately.
@@ -48,38 +61,6 @@ Shared setup: `src/test/java/atm/fixtures/SeededAccount.java`
 5. **S-A5. Fixed values.** Anything a test is not checking stays the same. The account always has a $1,000 daily limit and a $5,000 balance, belongs to a non-student, and uses Chequing. The $100,000 balance maximum is not used here, because the assignment sets this balance to $5,000.
 6. **S-A6. Worst case with a single fault.** Worst case normally tries every combination of values, including two bad inputs at once. The single fault assumption allows only one bad input per test, so we kept every combination except the ones where both the PIN and the amount are bad.
 7. **S-A7. No console version.** The assignment refers to a console version of the ATM, but this repository only has the Swing screens. The tests call `ATM` and `Session` directly, so no screens are needed.
-
-**Process**
-
-1. We picked the seven values for each input, as shown in the table above.
-2. Trying every PIN with every amount gives 7 x 7 = 49 cases. Removing the 4 cases with a bad PIN and a bad amount leaves 45:
-   - 25 with a good PIN and a good amount (SES-20 to SES-44);
-   - 10 with a good PIN and a bad amount (SES-45 to SES-54);
-   - 10 with a bad PIN and a good amount.
-3. The ATM stops at a bad PIN and never asks for an amount, so changing the amount cannot change the result. We ran each bad PIN once, which turns those 10 cases into 2 tests (SES-06 and SES-07). That leaves 37 tests from the table.
-4. We added 35 tests for cases the table misses:
-   - 5 good PINs checked through `ATM` (SES-01 to SES-05);
-   - 12 PINs with the wrong length or with non-digits (SES-08 to SES-19);
-   - 8 amounts made from different mixes of bills (SES-55 to SES-62);
-   - 5 amounts the bills cannot make (SES-63 to SES-67);
-   - 2 amounts over the limit that the bills can make (SES-68 and SES-69);
-   - 3 zero or negative amounts (SES-70 to SES-72).
-5. We worked out the expected result for each test from the rules above, never from the code. This gives **72 tests**.
-6. Each case is one row of a JUnit 5 `@ParameterizedTest`. Mockito replaces the screen (`MainPanel`) and the bank (`MessageDispatcher`), so the tests need no database or window.
-
-**How PIN and amount tests run**
-
-- PIN tests call `ATM.checkPin` with the real `FormatChecker`.
-- Amount tests call `Session.setAmount` directly, so a bug in the PIN check cannot hide the amount results. `Session` stores the PIN without checking it, so these tests only confirm that the PIN reaches the bank unchanged.
-- The fake bank approves everything and does not check the daily limit, so an amount can only be rejected by the ATM itself.
-
-**How the extra tests were chosen**
-
-The values in the table come from the specification. The bill mix and over-the-limit tests (SES-55 to SES-62, SES-68 and SES-69) were added after reading `CashValidator`, so those input values were not chosen from the specification alone. Their expected results still come only from the rules above.
-
-**Checking the tests**
-
-To make sure the tests themselves were correct, we fixed the faults in a temporary copy of the code. All 72 tests passed on that copy. No fixes are part of this phase.
 
 ### 1.2 Withdrawal fee (Robust Worst Case BVA)
 See [docs/assignment1/withdrawal.md, Section 1](assignment1/withdrawal.md#section-1-process-and-assumptions).
@@ -172,82 +153,75 @@ for each rule is the fee rate taken from the specification. We wrote one test ca
 
 ### 2.1 Session
 
-The Actual result and Status columns are the test results for this section. In the JUnit test column, `[n]` is the run number shown in the test report.
+The Expected, Actual and Status columns are the test results for this section (see
+also Section 3.1).
 
-| ID | JUnit test | PIN | Amount ($) | Case | Expected result | Actual result | Status |
-|---|---|---|---:|---|---|---|---|
-| SES-01 | `validPinIsAccepted[1]` | `00000` | Not reached | PIN lowest | PIN accepted | `InvalidPinFormatException` | Fail |
-| SES-02 | `validPinIsAccepted[2]` | `00001` | Not reached | PIN next above lowest | PIN accepted | `InvalidPinFormatException` | Fail |
-| SES-03 | `validPinIsAccepted[3]` | `55555` | Not reached | PIN middle | PIN accepted | `InvalidPinFormatException` | Fail |
-| SES-04 | `validPinIsAccepted[4]` | `99998` | Not reached | PIN next below highest | PIN accepted | `InvalidPinFormatException` | Fail |
-| SES-05 | `validPinIsAccepted[5]` | `99999` | Not reached | PIN highest | PIN accepted | `InvalidPinFormatException` | Fail |
-| SES-06 | `outOfRangePinIsRejected[1]` | `0000` | Not reached | PIN too low (too short) | `InvalidPinFormatException` | PIN accepted | Fail |
-| SES-07 | `outOfRangePinIsRejected[2]` | `100000` | Not reached | PIN too high (too long) | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-08 | `pinOfWrongLengthIsRejected[1]` | (empty) | Not reached | Empty | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-09 | `pinOfWrongLengthIsRejected[2]` | `5` | Not reached | 1 digit | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-10 | `pinOfWrongLengthIsRejected[3]` | `5555` | Not reached | 4 digits | `InvalidPinFormatException` | PIN accepted | Fail |
-| SES-11 | `pinOfWrongLengthIsRejected[4]` | `9999` | Not reached | 4 digits, all 9s | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-12 | `pinOfWrongLengthIsRejected[5]` | `555555` | Not reached | 6 digits | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-13 | `pinOfWrongLengthIsRejected[6]` | `999999` | Not reached | 6 digits, all 9s | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-14 | `pinWithNonDigitIsRejected[1]` | `/5555` | Not reached | Character before `0`, first place | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-15 | `pinWithNonDigitIsRejected[2]` | `5555/` | Not reached | Character before `0`, last place | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-16 | `pinWithNonDigitIsRejected[3]` | `:5555` | Not reached | Character after `9`, first place | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-17 | `pinWithNonDigitIsRejected[4]` | `5555:` | Not reached | Character after `9`, last place | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-18 | `pinWithNonDigitIsRejected[5]` | `a5555` | Not reached | Letter, first place | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-19 | `pinWithNonDigitIsRejected[6]` | `5555a` | Not reached | Letter, last place | `InvalidPinFormatException` | `InvalidPinFormatException` | Pass |
-| SES-20 | `validPinAndAmountCompleteWithdrawal[1]` | `00000` | 20 | PIN lowest, amount lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-21 | `validPinAndAmountCompleteWithdrawal[2]` | `00000` | 40 | PIN lowest, amount next above lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-22 | `validPinAndAmountCompleteWithdrawal[3]` | `00000` | 500 | PIN lowest, amount middle | Withdrawal completes | Withdrawal completes | Pass |
-| SES-23 | `validPinAndAmountCompleteWithdrawal[4]` | `00000` | 990 | PIN lowest, amount next below highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-24 | `validPinAndAmountCompleteWithdrawal[5]` | `00000` | 1,000 | PIN lowest, amount highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-25 | `validPinAndAmountCompleteWithdrawal[6]` | `00001` | 20 | PIN next above lowest, amount lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-26 | `validPinAndAmountCompleteWithdrawal[7]` | `00001` | 40 | PIN next above lowest, amount next above lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-27 | `validPinAndAmountCompleteWithdrawal[8]` | `00001` | 500 | PIN next above lowest, amount middle | Withdrawal completes | Withdrawal completes | Pass |
-| SES-28 | `validPinAndAmountCompleteWithdrawal[9]` | `00001` | 990 | PIN next above lowest, amount next below highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-29 | `validPinAndAmountCompleteWithdrawal[10]` | `00001` | 1,000 | PIN next above lowest, amount highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-30 | `validPinAndAmountCompleteWithdrawal[11]` | `55555` | 20 | PIN middle, amount lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-31 | `validPinAndAmountCompleteWithdrawal[12]` | `55555` | 40 | PIN middle, amount next above lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-32 | `validPinAndAmountCompleteWithdrawal[13]` | `55555` | 500 | PIN middle, amount middle | Withdrawal completes | Withdrawal completes | Pass |
-| SES-33 | `validPinAndAmountCompleteWithdrawal[14]` | `55555` | 990 | PIN middle, amount next below highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-34 | `validPinAndAmountCompleteWithdrawal[15]` | `55555` | 1,000 | PIN middle, amount highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-35 | `validPinAndAmountCompleteWithdrawal[16]` | `99998` | 20 | PIN next below highest, amount lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-36 | `validPinAndAmountCompleteWithdrawal[17]` | `99998` | 40 | PIN next below highest, amount next above lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-37 | `validPinAndAmountCompleteWithdrawal[18]` | `99998` | 500 | PIN next below highest, amount middle | Withdrawal completes | Withdrawal completes | Pass |
-| SES-38 | `validPinAndAmountCompleteWithdrawal[19]` | `99998` | 990 | PIN next below highest, amount next below highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-39 | `validPinAndAmountCompleteWithdrawal[20]` | `99998` | 1,000 | PIN next below highest, amount highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-40 | `validPinAndAmountCompleteWithdrawal[21]` | `99999` | 20 | PIN highest, amount lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-41 | `validPinAndAmountCompleteWithdrawal[22]` | `99999` | 40 | PIN highest, amount next above lowest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-42 | `validPinAndAmountCompleteWithdrawal[23]` | `99999` | 500 | PIN highest, amount middle | Withdrawal completes | Withdrawal completes | Pass |
-| SES-43 | `validPinAndAmountCompleteWithdrawal[24]` | `99999` | 990 | PIN highest, amount next below highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-44 | `validPinAndAmountCompleteWithdrawal[25]` | `99999` | 1,000 | PIN highest, amount highest | Withdrawal completes | Withdrawal completes | Pass |
-| SES-45 | `outOfRangeAmountIsRejected[1]` | `00000` | 10 | PIN lowest, amount too low | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-46 | `outOfRangeAmountIsRejected[2]` | `00000` | 1,010 | PIN lowest, amount too high | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-47 | `outOfRangeAmountIsRejected[3]` | `00001` | 10 | PIN next above lowest, amount too low | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-48 | `outOfRangeAmountIsRejected[4]` | `00001` | 1,010 | PIN next above lowest, amount too high | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-49 | `outOfRangeAmountIsRejected[5]` | `55555` | 10 | PIN middle, amount too low | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-50 | `outOfRangeAmountIsRejected[6]` | `55555` | 1,010 | PIN middle, amount too high | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-51 | `outOfRangeAmountIsRejected[7]` | `99998` | 10 | PIN next below highest, amount too low | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-52 | `outOfRangeAmountIsRejected[8]` | `99998` | 1,010 | PIN next below highest, amount too high | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-53 | `outOfRangeAmountIsRejected[9]` | `99999` | 10 | PIN highest, amount too low | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-54 | `outOfRangeAmountIsRejected[10]` | `99999` | 1,010 | PIN highest, amount too high | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-55 | `dispensableAmountCompletesWithdrawal[1]` | `55555` | 50 | One $50 | Withdrawal completes | Withdrawal completes | Pass |
-| SES-56 | `dispensableAmountCompletesWithdrawal[2]` | `55555` | 60 | Three $20s | Withdrawal completes | `InvalidAmountException` | Fail |
-| SES-57 | `dispensableAmountCompletesWithdrawal[3]` | `55555` | 70 | $50 + $20 | Withdrawal completes | Withdrawal completes | Pass |
-| SES-58 | `dispensableAmountCompletesWithdrawal[4]` | `55555` | 80 | Four $20s | Withdrawal completes | `InvalidAmountException` | Fail |
-| SES-59 | `dispensableAmountCompletesWithdrawal[5]` | `55555` | 110 | $50 + three $20s | Withdrawal completes | `InvalidAmountException` | Fail |
-| SES-60 | `dispensableAmountCompletesWithdrawal[6]` | `55555` | 130 | $50 + four $20s | Withdrawal completes | `InvalidAmountException` | Fail |
-| SES-61 | `dispensableAmountCompletesWithdrawal[7]` | `55555` | 960 | Mix of bills, near the top | Withdrawal completes | `InvalidAmountException` | Fail |
-| SES-62 | `dispensableAmountCompletesWithdrawal[8]` | `55555` | 980 | Mix of bills, near the top | Withdrawal completes | `InvalidAmountException` | Fail |
-| SES-63 | `undispensableAmountIsRejected[1]` | `55555` | 19 | $1 below lowest | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-64 | `undispensableAmountIsRejected[2]` | `55555` | 21 | $1 above lowest | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-65 | `undispensableAmountIsRejected[3]` | `55555` | 30 | Gap between $20 and $40 | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-66 | `undispensableAmountIsRejected[4]` | `55555` | 999 | $1 below highest | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-67 | `undispensableAmountIsRejected[5]` | `55555` | 1,001 | $1 above highest | `InvalidAmountException` | `InvalidAmountException` | Pass |
-| SES-68 | `dispensableAmountOverDailyLimitIsRejected[1]` | `55555` | 1,020 | Over the limit, bills can make it | `InvalidAmountException` | Withdrawal completes | Fail |
-| SES-69 | `dispensableAmountOverDailyLimitIsRejected[2]` | `55555` | 1,050 | Over the limit, bills can make it | `InvalidAmountException` | Withdrawal completes | Fail |
-| SES-70 | `nonPositiveAmountIsRejected[1]` | `55555` | 0 | Zero | `InvalidAmountException` | Withdrawal completes | Fail |
-| SES-71 | `nonPositiveAmountIsRejected[2]` | `55555` | -20 | Negative | `InvalidAmountException` | Withdrawal completes | Fail |
-| SES-72 | `nonPositiveAmountIsRejected[3]` | `55555` | -50 | Negative | `InvalidAmountException` | Withdrawal completes | Fail |
+#### 2.1.1 PIN format
+
+| ID | PIN | Boundary / class | Expected | Actual | Status |
+|---|---|---|---|---|---|
+| SE-P-01 | 00000 | min (valid) | Accepted | InvalidPinFormatException | Fail |
+| SE-P-02 | 00001 | min+ (valid) | Accepted | InvalidPinFormatException | Fail |
+| SE-P-03 | 55555 | nominal (valid) | Accepted | InvalidPinFormatException | Fail |
+| SE-P-04 | 99998 | max- (valid) | Accepted | InvalidPinFormatException | Fail |
+| SE-P-05 | 99999 | max (valid) | Accepted | InvalidPinFormatException | Fail |
+| SE-P-06 | 0000 | min- (4 digits, invalid) | Rejected | Accepted | Fail |
+| SE-P-07 | 100000 | max+ (6 digits, invalid) | Rejected | Rejected | Pass |
+| SE-P-08 | (empty) | wrong length | Rejected | Rejected | Pass |
+| SE-P-09 | 5 | wrong length | Rejected | Rejected | Pass |
+| SE-P-10 | 5555 | wrong length (4 digits) | Rejected | Accepted | Fail |
+| SE-P-11 | 9999 | wrong length (4 digits) | Rejected | Rejected | Pass |
+| SE-P-12 | 555555 | wrong length (6 digits) | Rejected | Rejected | Pass |
+| SE-P-13 | 999999 | wrong length (6 digits) | Rejected | Rejected | Pass |
+| SE-P-14 | /5555 | non-digit | Rejected | Rejected | Pass |
+| SE-P-15 | 5555/ | non-digit | Rejected | Rejected | Pass |
+| SE-P-16 | :5555 | non-digit | Rejected | Rejected | Pass |
+| SE-P-17 | 5555: | non-digit | Rejected | Rejected | Pass |
+| SE-P-18 | a5555 | non-digit | Rejected | Rejected | Pass |
+| SE-P-19 | 5555a | non-digit | Rejected | Rejected | Pass |
+
+SE-P-11 passes only by coincidence: the code also rejects the valid digit 9 (the
+secondary bug in S-F1), which happens to yield the expected rejection for a 4-digit
+PIN that should be rejected on length anyway.
+
+#### 2.1.2 Withdrawal amount
+
+Boundary rows SE-A-01 to SE-A-07 are each run with all five valid PINs (worst-case
+cross product = 35 executions); the remaining rows use nominal PIN 55555. "Dispatched"
+means the withdrawal was accepted and sent to the bank.
+
+| ID | Amount | Boundary / class | Expected | Actual | Status |
+|---|---|---|---|---|---|
+| SE-A-01 | 20 | min (valid) | Dispatched | Dispatched | Pass |
+| SE-A-02 | 40 | min+ (valid) | Dispatched | Dispatched | Pass |
+| SE-A-03 | 500 | nominal (valid) | Dispatched | Dispatched | Pass |
+| SE-A-04 | 990 | max- (valid) | Dispatched | Dispatched | Pass |
+| SE-A-05 | 1000 | max / daily limit (valid) | Dispatched | Dispatched | Pass |
+| SE-A-06 | 10 | min- (below $20) | InvalidAmountException | Rejected | Pass |
+| SE-A-07 | 1010 | max+ (over daily limit) | InvalidAmountException | Rejected | Pass |
+| SE-A-08 | 50 | dispensable (1x$50) | Dispatched | Dispatched | Pass |
+| SE-A-09 | 60 | dispensable (3x$20) | Dispatched | InvalidAmountException | Fail |
+| SE-A-10 | 70 | dispensable ($20+$50) | Dispatched | Dispatched | Pass |
+| SE-A-11 | 80 | dispensable (4x$20) | Dispatched | InvalidAmountException | Fail |
+| SE-A-12 | 110 | dispensable ($50+3x$20) | Dispatched | InvalidAmountException | Fail |
+| SE-A-13 | 130 | dispensable | Dispatched | InvalidAmountException | Fail |
+| SE-A-14 | 960 | dispensable | Dispatched | InvalidAmountException | Fail |
+| SE-A-15 | 980 | dispensable | Dispatched | InvalidAmountException | Fail |
+| SE-A-16 | 19 | not dispensable | InvalidAmountException | Rejected | Pass |
+| SE-A-17 | 21 | not dispensable | InvalidAmountException | Rejected | Pass |
+| SE-A-18 | 30 | not dispensable | InvalidAmountException | Rejected | Pass |
+| SE-A-19 | 999 | not dispensable | InvalidAmountException | Rejected | Pass |
+| SE-A-20 | 1001 | not dispensable | InvalidAmountException | Rejected | Pass |
+| SE-A-21 | 1020 | over daily limit (dispensable) | InvalidAmountException | Dispatched | Fail |
+| SE-A-22 | 1050 | over daily limit (dispensable) | InvalidAmountException | Dispatched | Fail |
+| SE-A-23 | 0 | non-positive | InvalidAmountException | Dispatched | Fail |
+| SE-A-24 | -20 | non-positive | InvalidAmountException | Dispatched | Fail |
+| SE-A-25 | -50 | non-positive | InvalidAmountException | Dispatched | Fail |
+
+SE-A-07 passes only by coincidence. $1,010 can be dispensed (48 x $20 + 1 x $50), so
+the only correct reason to reject it is the $1,000 daily limit, which the code never
+checks (S-F3). The code rejects it because its bill check (S-F2) wrongly treats $1,010
+as undispensable, so one fault happens to hide the other on this input.
 
 ### 2.2 Withdrawal fee
 See [docs/assignment1/withdrawal.md, Section 2](assignment1/withdrawal.md#section-2-test-cases).
@@ -269,7 +243,7 @@ The Actual result and Status columns are the test results for this section.
 | DEP-WREC-09 | Yes | -1.00 | 1,000.00 | Invalid amount (< 0), so amount <= 50; balance <= 5,000 | 0.00 | -0.002 | Fail |
 | DEP-WREC-10 | Yes | 100.00 | -1.00 | Invalid balance (< 0), so amount > 50; balance <= 500 | 0.25 | 0.20 | Fail |
 
-### 2.4 Transfer fee: decision table
+### 2.4.1 Transfer fee: decision table
 
 T = true, F = false.
 
@@ -281,7 +255,7 @@ T = true, F = false.
 | C4 to < threshold | T | F | T | F | T | F | T | F | T | F | T | F | T | F | T | F |
 | **Fee rate** | 0.1% | 0.05% | 0.05% | 0.025% | 0.05% | 0.025% | 0.25% | 0.125% | 0.2% | 0.1% | 1% | 0.5% | 0.2% | 0.1% | 0.5% | 0.25% |
 
-### 2.4 Transfer fee: test cases
+### 2.4.2 Transfer fee: test cases
 
 | Test | Rule | amount | from balance | to balance | student | Rate | Expected fee |
 |---|---|---|---|---|---|---|---|
@@ -315,7 +289,8 @@ T = true, F = false.
 
 ### 3.1 Session
 
-See the Actual result and Status columns in section 2.1.
+72 cases run, 54 passed, 18 failed. The pass/fail status of every case is in the
+Status column of Section 2.1. Results per JUnit test:
 
 | JUnit test | Run | Passed | Failed |
 |---|---:|---:|---:|
@@ -331,7 +306,16 @@ See the Actual result and Status columns in section 2.1.
 | `nonPositiveAmountIsRejected` | 3 | 0 | 3 |
 | **Total** | **72** | **54** | **18** |
 
-The $1,010 tests pass, but only by luck. Fault S-F2 rejects $1,010, not a daily limit check. SES-68 and SES-69 show that the limit is missing.
+The failures group into four faults:
+
+| Fault | Failing cases | Count |
+|---|---|---|
+| S-F1 | SE-P-01 to SE-P-05, SE-P-06, SE-P-10 | 7 |
+| S-F2 | SE-A-09, SE-A-11, SE-A-12, SE-A-13, SE-A-14, SE-A-15 | 6 |
+| S-F3 | SE-A-21, SE-A-22 | 2 |
+| S-F4 | SE-A-23, SE-A-24, SE-A-25 | 3 |
+
+See Section 4 for the fault localization.
 
 ### 3.2 Withdrawal fee
 See [docs/assignment1/withdrawal.md, Test results](assignment1/withdrawal.md#test-results).
@@ -372,26 +356,30 @@ fault. Fault IDs start with S (session), W (withdrawal), D (deposit) or T (trans
 
 | Fault | Failing tests | Location (method, line, statement) | Justification |
 |---|---|---|---|
-| S-F1 | SES-01 to SES-06, SES-10 | `atm/utils/FormatChecker.java`, `checkPinFormat`, line 33: `if (pin.length == 4)` | Every 5-digit PIN was rejected, while the 4-digit PINs `0000` and `5555` were accepted, so the code requires 4 digits instead of 5. The loop on line 34 also stops at 4 and needs the same change. |
-| S-F2 | SES-56, SES-58 to SES-62 | `atm/utils/CashValidator.java`, `validateWithdrawal`, lines 23 and 25: `amount % 50`, then `newAmount % 20` | The code takes out as many $50 bills as it can and never tries using fewer. When $10 or $30 is left over it rejects the amount, even though $60, $80, $110, $130, $960 and $980 can all be made. |
-| S-F3 | SES-68, SES-69 | `atm/utils/CashValidator.java`, `validateWithdrawal` (line 20): missing check, called from `Session.setAmount`, line 88 | $1,020 and $1,050 were paid out. Nothing in the code checks the $1,000 daily limit. |
-| S-F4 | SES-70, SES-71, SES-72 | `atm/utils/CashValidator.java`, `validateWithdrawal` (line 20): missing check, called from `Session.setAmount`, line 88 | $0, -$20 and -$50 were paid out. The code only looks at what is left over after dividing, and these leave nothing over, so a minimum amount check is missing. |
+| S-F1 | SE-P-01 to SE-P-05, SE-P-06, SE-P-10 | `atm.utils.FormatChecker.checkPinFormat`, line 33: `if (pin.length == 4)` | The spec requires a 5-digit PIN, but the code only accepts length 4, so valid 5-digit PINs are rejected and invalid 4-digit PINs are accepted. (Line 35, `pin[i] >= '9'`, also wrongly rejects the digit 9, but is masked by the length check.) |
+| S-F2 | SE-A-09, SE-A-11, SE-A-12, SE-A-13, SE-A-14, SE-A-15 | `atm.utils.CashValidator.validateWithdrawal`, lines 23-28: `amount % 50` then `% 20` | Amounts that can be dispensed with a mix of $20 and $50 bills (e.g. $60 = 3x$20) are wrongly rejected, because the check never tests combinations of the two denominations. |
+| S-F3 | SE-A-21, SE-A-22 | `atm.session.Session.setAmount` / `atm.utils.CashValidator.validateWithdrawal`: no daily-limit check | The $1,000 daily limit is never enforced anywhere in the code, so withdrawals above the limit are accepted when the spec says the daily limit is the upper boundary. |
+| S-F4 | SE-A-23, SE-A-24, SE-A-25 | `atm.utils.CashValidator.validateWithdrawal`: no lower-bound check | Zero and negative amounts pass validation (e.g. `0 % 50 == 0`), so they are accepted instead of rejected as invalid amounts. |
 | W-F1 | 35 student weekday/weekend tests (WD-S-02 ... WD-S-48, full list in [withdrawal.md](assignment1/withdrawal.md#fault-localization)) | `calculateWithdrawalFee`, line 12: `if ((dayOfWeek == Calendar.SATURDAY) \|\| (dayOfWeek == Calendar.SUNDAY))` | Every student weekday case expected no fee but was charged 0.1%, and every weekend case expected 0.1% but was charged nothing, so the weekday/weekend branches are swapped. |
 | W-F2 | 35 non-student tests WD-N-001 to WD-N-035 | `calculateWithdrawalFee`, line 19: `feePercentage = 0.002;` | Every non-student case with balance below $1,000 returned 0.2% of the amount instead of the specified 0.3%, so the rate constant is wrong. |
 | W-F3 | 14 non-student tests WD-N-064 to WD-N-077 | `calculateWithdrawalFee`, line 20: `else if (accountBalance < 10000.00)` | Balances of $5,000.00 and $5,000.01 were charged 0.1% instead of no fee, so the upper threshold of the 0.1% band is $10,000 instead of $5,000. |
-| D-F1 | DEP-WREC-01, DEP-WREC-02, DEP-WREC-10 | `bank.utils.FeesCalculator.calculateDepositInterest`: student amount threshold and rates | The implementation uses an amount threshold of $100 and rates of 1%, 0.5%, and 0.2%, rather than the specified $50 threshold and 0.5%, 0.25%, and 0% rates. |
-| D-F2 | DEP-WREC-04, DEP-WREC-09 | `bank.utils.FeesCalculator.calculateDepositInterest`: student low-amount, low-balance branch | The implementation charges 0.2% when the specified fee is zero. |
-| D-F3 | DEP-WREC-05, DEP-WREC-06 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student high-amount threshold and rates | The implementation uses a $500 amount threshold and $5,000 balance threshold instead of $250 and $2,500, and its rates do not match 0.8% and 0.4%. |
-| D-F4 | DEP-WREC-07, DEP-WREC-08 | `bank.utils.FeesCalculator.calculateDepositInterest`: non-student low-amount rates | The implementation applies 0.5% above $10,000 and 0% otherwise, while the specification requires 0% above $10,000 and 0.1% otherwise. |
-| T-F1 | TF-R1 to TF-R13, TF-R15 | `calculateTransferFee`, the `feePercentage = ...` rates (lines 83-133) | Rates are coded 10x too large (for example `0.01` for 0.1%, where `calculateWithdrawalFee` correctly uses `0.001`). The tests where no threshold fault applies show this directly: TF-R7, TF-R8, TF-R12 and TF-R15 each return exactly 10x the expected fee (TF-R7: 12.5 instead of 1.25). In the other tests a threshold fault (T-F2 to T-F6) also sends the input to another rule, so the ratio differs (TF-R11 returned 2.5, 5x the expected 0.50). |
+| D-F1 | DEP-WREC-01, DEP-WREC-02, DEP-WREC-10 | `FeesCalculator.calculateDepositInterest`, line 39: `if (amount > 100.00)` | The specified student threshold is $50, so a $100 deposit is treated as "$50 or less" and falls through to line 50 (0.2%), returning 0.20 instead of 0.50 or 0.25. |
+| D-F2 | DEP-WREC-04, DEP-WREC-09 | `FeesCalculator.calculateDepositInterest`, line 50: `interestPercentage = 0.002;` | The specification charges no fee for a student deposit of $50 or less with a balance of $5,000 or less, but the code charges 0.2% (DEP-WREC-04 returned 0.05). |
+| D-F3 | DEP-WREC-05, DEP-WREC-06 | `FeesCalculator.calculateDepositInterest`, line 54: `if (amount > 500.00)` | The specified non-student threshold is $250, so a $500 deposit is treated as "$250 or less" and falls through to line 64 (0%), returning 0.00 instead of 4.00 or 2.00. |
+| D-F4 | DEP-WREC-07, DEP-WREC-08 | `FeesCalculator.calculateDepositInterest`, lines 62 and 64: `interestPercentage = 0.005;` and `interestPercentage = 0.0;` | The non-student low-amount rates are wrong: line 62 charges 0.5% above $10,000 where the specification charges nothing, and line 64 charges 0% where it requires 0.1%. |
+| T-F1 | TF-R1 to TF-R13, TF-R15 | `calculateTransferFee`, the `feePercentage = ...` rates these tests execute: lines 103, 105, 121 and 133 | These rates are coded 10x too large (for example, line 103 uses `0.025` for 0.25%, where `calculateWithdrawalFee` correctly uses `0.001` for 0.1%). The tests where no threshold fault applies show this directly: TF-R7, TF-R8, TF-R12 and TF-R15 each return exactly 10x the expected fee (TF-R7: 12.5 instead of 1.25). In the other tests a threshold fault (T-F2 to T-F6) also sends the input to another rule, so the ratio differs (TF-R11 returned 2.5, 5x the expected 0.50). |
 | T-F2 | TF-R1, TF-R2, TF-R3, TF-R4 | `calculateTransferFee`, line 80, `if (amount < 100.00)` in the student branch | The student amount threshold should be $200, so a $150 student transfer goes to the ">= $200" branch, as the actual values show (TF-R3 returned 150 x 0.025 = 3.75, the large-amount rate). |
-| T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | `calculateTransferFee`, lines 81 and 95, `if (fromAccountBalance < 1000.00)` in the student branch | The student "from" threshold should be $2,000, so a from balance of $1,000 is treated as ">= threshold" (TF-R5 returned 500 x 0.025 = 12.5, the from-high rate). |
+| T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | `calculateTransferFee`, line 95, `if (fromAccountBalance < 1000.00)` in the student branch | The student "from" threshold should be $2,000, so a from balance of $1,000 is treated as ">= threshold" (TF-R5 returned 500 x 0.025 = 12.5, the from-high rate). |
 | T-F4 | TF-R9, TF-R10 | `calculateTransferFee`, line 111, `if (fromAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $4,000 here, so a from balance of $3,000 is wrongly treated as ">= threshold". |
-| T-F5 | TF-R9, TF-R11 | `calculateTransferFee`, lines 112 and 118, `if (toAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $2,000 here, so a to balance of $1,500 is wrongly treated as ">= threshold". |
+| T-F5 | TF-R9, TF-R11 | `calculateTransferFee`, line 118, `if (toAccountBalance < 1000.00)` in the non-student, amount < $100 branch | The specification uses $2,000 here, so a to balance of $1,500 is wrongly treated as ">= threshold". |
 | T-F6 | TF-R13, TF-R14 | `calculateTransferFee`, line 125, `if (fromAccountBalance < 1000.00)` in the non-student, amount >= $100 branch | The threshold should be $2,000, so a from balance of $1,000 takes the from-high path (TF-R13 returned 150 x 0.05 = 7.5). |
 | T-F7 | TF-R14, TF-R16 | `calculateTransferFee`, line 135, `feePercentage = 0.055;` | For 0.25% the rate should be `0.0025`; `0.055` (5.5%) does not match even the 10x pattern of T-F1, so both tests returned 150 x 0.055 = 8.25. |
 
-Hidden behind S-F1: `atm/utils/FormatChecker.java`, line 35 (`pin[i] >= '9'`) rejects the digit 9. No test can show this yet, because S-F1 rejects every 5-digit PIN first. We confirmed this on a temporary copy: with only S-F1 fixed, SES-04 (`99998`) and SES-05 (`99999`) still fail.
+**Faults seen in the code but not exposed by a test.** These statements also disagree with the specification, but no test executes them, so no failure confirms them:
+
+- `calculateDepositInterest`: lines 41, 42, 44, 55, 56 and 58. The deposit amounts tested ($100 and $500) do not exceed the code's `> 100` and `> 500` checks, so these branches never run.
+- `calculateTransferFee` rates: lines 83, 85, 97, 99, 113, 115 and 119 (10x too large), lines 89 and 91 (100x), and lines 127 and 129 (5x).
+- `calculateTransferFee` thresholds: line 81 (the T-F3 condition) and line 112 (the T-F5 condition), in branches the tests do not reach.
 
 
 ---
@@ -403,21 +391,23 @@ Fill in your own times; do not reconstruct them later.
 
 | Failure ID | Test case(s) | Found by | Time testing before found (min) | Time diagnosing (min) | Fault |
 |---|---|---|---|---|---|
-| S-F1 | SES-01 to SES-06, SES-10 | alessiap000 | | | S-F1 |
-| S-F2 | SES-56, SES-58 to SES-62 | alessiap000 | | | S-F2 |
-| S-F3 | SES-68, SES-69 | alessiap000 | | | S-F3 |
-| S-F4 | SES-70, SES-71, SES-72 | alessiap000 | | | S-F4 |
+| S-F1 | SE-P-01 | Alessia Pilla | 125 | 22 | S-F1 |
+| S-F2 | SE-A-09 | Alessia Pilla | 78 | 24 | S-F2 |
+| S-F3 | SE-A-21 | Alessia Pilla | 8 | 16 | S-F3 |
+| S-F4 | SE-A-23 | Alessia Pilla | 4 | 9 | S-F4 |
 | W-F1 | WD-S-02 | Alan Cruz | | | W-F1 |
 | W-F2 | WD-N-001 | Alan Cruz | | | W-F2 |
 | W-F3 | WD-N-064 | Alan Cruz | | | W-F3 |
-| DEP-F01 | DEP-WREC-01, DEP-WREC-02 | Jared Jack Harrison | | | D-F1 |
-| DEP-F02 | DEP-WREC-04 | Jared Jack Harrison | | | D-F2 |
-| DEP-F03 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | | | D-F3 |
-| DEP-F04 | DEP-WREC-07, DEP-WREC-08 | Jared Jack Harrison | | | D-F4 |
-| TR-F1 | TF-R1 to TF-R13, TF-R15 | Julia Kasperek | | | T-F1 |
-| TR-F2 | TF-R1 to TF-R4 | Julia Kasperek | | | T-F2 |
-| TR-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | | | T-F3 |
-| TR-F4 | TF-R9, TF-R10 | Julia Kasperek | | | T-F4 |
-| TR-F5 | TF-R9, TF-R11 | Julia Kasperek | | | T-F5 |
-| TR-F6 | TF-R13, TF-R14 | Julia Kasperek | | | T-F6 |
-| TR-F7 | TF-R14, TF-R16 | Julia Kasperek | | | T-F7 |
+| D-F1 | DEP-WREC-01, DEP-WREC-02 | Jared Jack Harrison | 85 | 18 | D-F1 |
+| D-F2 | DEP-WREC-04 | Jared Jack Harrison | 6 | 9 | D-F2 |
+| D-F3 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | 4 | 14 | D-F3 |
+| D-F4 | DEP-WREC-07, DEP-WREC-08 | Jared Jack Harrison | 5 | 8 | D-F4 |
+| T-F1 | TF-R1 to TF-R13, TF-R15 | Julia Kasperek | 15 | 20 | T-F1 |
+| T-F2 | TF-R1 to TF-R4 | Julia Kasperek | 15 | 10 | T-F2 |
+| T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | 15 | 12 | T-F3 |
+| T-F4 | TF-R9, TF-R10 | Julia Kasperek | 15 | 15 | T-F4 |
+| T-F5 | TF-R9, TF-R11 | Julia Kasperek | 15 | 15 | T-F5 |
+| T-F6 | TF-R13, TF-R14 | Julia Kasperek | 15 | 8 | T-F6 |
+| T-F7 | TF-R14, TF-R16 | Julia Kasperek | 15 | 5 | T-F7 |
+
+Transfer rows (T-F1 to T-F7): times were not tracked during testing, so these are estimates made afterwards.
