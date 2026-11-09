@@ -387,10 +387,12 @@ Fill in your own times; do not reconstruct them later.
 | D-F2 | DEP-WREC-04 | Jared Jack Harrison | 6 | 9 | D-F2 |
 | D-F3 | DEP-WREC-05, DEP-WREC-06 | Jared Jack Harrison | 4 | 14 | D-F3 |
 | D-F4 | DEP-WREC-07, DEP-WREC-08 | Jared Jack Harrison | 5 | 8 | D-F4 |
-| T-F1 | TF-R1 to TF-R13, TF-R15 | Julia Kasperek | | | T-F1 |
-| T-F2 | TF-R1 to TF-R4 | Julia Kasperek | | | T-F2 |
-| T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | | | T-F3 |
-| T-F4 | TF-R9, TF-R10 | Julia Kasperek | | | T-F4 |
-| T-F5 | TF-R9, TF-R11 | Julia Kasperek | | | T-F5 |
-| T-F6 | TF-R13, TF-R14 | Julia Kasperek | | | T-F6 |
-| T-F7 | TF-R14, TF-R16 | Julia Kasperek | | | T-F7 |
+| T-F1 | TF-R1 to TF-R13, TF-R15 | Julia Kasperek | 15 | 20 | T-F1 |
+| T-F2 | TF-R1 to TF-R4 | Julia Kasperek | 15 | 10 | T-F2 |
+| T-F3 | TF-R1, TF-R2, TF-R5, TF-R6 | Julia Kasperek | 15 | 12 | T-F3 |
+| T-F4 | TF-R9, TF-R10 | Julia Kasperek | 15 | 15 | T-F4 |
+| T-F5 | TF-R9, TF-R11 | Julia Kasperek | 15 | 15 | T-F5 |
+| T-F6 | TF-R13, TF-R14 | Julia Kasperek | 15 | 8 | T-F6 |
+| T-F7 | TF-R14, TF-R16 | Julia Kasperek | 15 | 5 | T-F7 |
+
+Transfer rows (T-F1 to T-F7): times were not tracked during testing, so these are estimates made afterwards.
