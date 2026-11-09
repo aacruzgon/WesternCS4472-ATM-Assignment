@@ -12,7 +12,7 @@ class DepositFeesTest {
 	private static final double DELTA = 0.000001;
 	private final FeesCalculator calculator = new FeesCalculator();
 
-	// Tests each deposit fee group, plus a negative amount and a negative balance.
+	// Spec, Deposit: tests each deposit fee group, plus a negative amount and a negative balance.
 	@ParameterizedTest(name = "{0}")
 	@MethodSource("depositFeeCases")
 	void calculatesDepositFee(
